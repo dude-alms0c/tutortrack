@@ -97,7 +97,7 @@ function ScheduleForm({
   );
 }
 
-function BulkScheduleDialog() {
+function BulkScheduleDialog({ students }: { students: Student[] }) {
   const { toast } = useToast();
   const [results, setResults] = useState<{ success: number; errors: string[] } | null>(null);
 
@@ -117,7 +117,14 @@ function BulkScheduleDialog() {
   });
 
   const downloadTemplate = () => {
-    const csv = "studentId,dayOfWeek,startTime,endTime,subject\n1,Monday,16:00,17:00,Mathematics\n";
+    let csv = "studentId,studentName,dayOfWeek,startTime,endTime,subject\n";
+    const activeStudents = students.filter(s => s.status === "active");
+    if (activeStudents.length > 0) {
+      const s = activeStudents[0];
+      csv += `${s.id},${s.name},Monday,16:00,17:00,${s.subject}\n`;
+    } else {
+      csv += "1,Student Name,Monday,16:00,17:00,Mathematics\n";
+    }
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -157,7 +164,7 @@ function BulkScheduleDialog() {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">Upload a CSV file with schedule data. Use student IDs from the Students page.</p>
+      <p className="text-sm text-muted-foreground">Upload a CSV file with schedule data. The template includes student IDs and names for easy reference. The studentName column is for your reference only and is ignored during import.</p>
       <Button variant="secondary" onClick={downloadTemplate} className="w-full" data-testid="button-download-schedule-template">
         <Download className="h-4 w-4 mr-2" />Download CSV Template
       </Button>
@@ -224,6 +231,21 @@ export default function Schedules() {
           <p className="text-sm text-muted-foreground">Weekly tuition timetable</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          <Button variant="outline" onClick={() => {
+            if (!schedules?.length) return;
+            const header = "studentId,studentName,dayOfWeek,startTime,endTime,subject";
+            const rows = schedules.map(sc => {
+              const s = students?.find(st => st.id === sc.studentId);
+              return `${sc.studentId},"${s?.name || "Unknown"}",${sc.dayOfWeek},${sc.startTime},${sc.endTime},${sc.subject}`;
+            });
+            const csv = [header, ...rows].join("\n");
+            const blob = new Blob([csv], { type: "text/csv" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a"); a.href = url; a.download = "schedules_list.csv"; a.click();
+            URL.revokeObjectURL(url);
+          }} data-testid="button-download-schedules-list">
+            <Download className="h-4 w-4 mr-2" />Download List
+          </Button>
           <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
             <DialogTrigger asChild>
               <Button variant="secondary" data-testid="button-bulk-upload-schedules">
@@ -232,7 +254,7 @@ export default function Schedules() {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader><DialogTitle>Bulk Upload Schedules</DialogTitle></DialogHeader>
-              <BulkScheduleDialog />
+              <BulkScheduleDialog students={students || []} />
             </DialogContent>
           </Dialog>
           <Dialog open={addOpen} onOpenChange={setAddOpen}>
@@ -278,7 +300,7 @@ export default function Schedules() {
                             <Clock className="h-3.5 w-3.5" />{schedule.startTime} - {schedule.endTime}
                           </div>
                           <div>
-                            <p className="text-sm font-medium">{student?.name || "Unknown"}</p>
+                            <p className="text-sm font-medium">{student?.name || "Unknown"} <span className="text-xs text-muted-foreground font-normal">#{schedule.studentId}</span></p>
                             <p className="text-xs text-muted-foreground">{schedule.subject}</p>
                           </div>
                         </div>

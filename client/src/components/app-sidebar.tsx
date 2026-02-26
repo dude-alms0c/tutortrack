@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, Calendar, CreditCard } from "lucide-react";
+import { LayoutDashboard, Users, Calendar, CreditCard, FileBarChart, Database } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -17,6 +17,8 @@ const items = [
   { title: "Students", url: "/students", icon: Users },
   { title: "Schedules", url: "/schedules", icon: Calendar },
   { title: "Payments", url: "/payments", icon: CreditCard },
+  { title: "Reports", url: "/reports", icon: FileBarChart },
+  { title: "Backup", url: "/backup", icon: Database },
 ];
 
 export function AppSidebar() {

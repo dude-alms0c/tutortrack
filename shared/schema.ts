@@ -12,6 +12,7 @@ export const students = pgTable("students", {
   subject: text("subject").notNull(),
   monthlyFee: integer("monthly_fee").notNull(),
   status: text("status").notNull().default("active"),
+  familyName: text("family_name"),
 });
 
 export const schedules = pgTable("schedules", {
@@ -34,9 +35,18 @@ export const payments = pgTable("payments", {
   notes: text("notes"),
 });
 
+export const studentFees = pgTable("student_fees", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  studentId: integer("student_id").notNull(),
+  month: text("month").notNull(),
+  year: integer("year").notNull(),
+  amount: integer("amount").notNull(),
+});
+
 export const insertStudentSchema = createInsertSchema(students).omit({ id: true });
 export const insertScheduleSchema = createInsertSchema(schedules).omit({ id: true });
 export const insertPaymentSchema = createInsertSchema(payments).omit({ id: true });
+export const insertStudentFeeSchema = createInsertSchema(studentFees).omit({ id: true });
 
 export type Student = typeof students.$inferSelect;
 export type InsertStudent = z.infer<typeof insertStudentSchema>;
@@ -44,3 +54,5 @@ export type Schedule = typeof schedules.$inferSelect;
 export type InsertSchedule = z.infer<typeof insertScheduleSchema>;
 export type Payment = typeof payments.$inferSelect;
 export type InsertPayment = z.infer<typeof insertPaymentSchema>;
+export type StudentFee = typeof studentFees.$inferSelect;
+export type InsertStudentFee = z.infer<typeof insertStudentFeeSchema>;

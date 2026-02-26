@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Users, Calendar, CreditCard, TrendingUp, Clock } from "lucide-react";
 import { formatQAR, formatINREquivalent } from "@/lib/currency";
-import type { Student, Schedule, Payment } from "@shared/schema";
+import type { Student, Schedule, Payment, StudentFee } from "@shared/schema";
 
 const DAYS_ORDER = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
@@ -22,6 +22,9 @@ export default function Dashboard() {
   const { data: payments, isLoading: loadingPayments } = useQuery<Payment[]>({
     queryKey: ["/api/payments"],
   });
+  const { data: studentFeesData } = useQuery<StudentFee[]>({
+    queryKey: ["/api/student-fees"],
+  });
 
   const loading = loadingStudents || loadingSchedules || loadingPayments;
   const activeStudents = students?.filter((s) => s.status === "active") || [];
@@ -32,7 +35,14 @@ export default function Dashboard() {
     (p) => p.month === currentMonth && p.year === currentYear
   ) || [];
   const totalCollected = monthPayments.reduce((sum, p) => sum + p.amount, 0);
-  const totalExpected = activeStudents.reduce((sum, s) => sum + s.monthlyFee, 0);
+
+  const getEffectiveFee = (studentId: number) => {
+    const override = studentFeesData?.find(f => f.studentId === studentId && f.month === currentMonth && f.year === currentYear);
+    if (override) return override.amount;
+    const student = students?.find(s => s.id === studentId);
+    return student?.monthlyFee || 0;
+  };
+  const totalExpected = activeStudents.reduce((sum, s) => sum + getEffectiveFee(s.id), 0);
 
   const paidStudentIds = new Set(monthPayments.map((p) => p.studentId));
   const pendingStudents = activeStudents.filter((s) => !paidStudentIds.has(s.id));
@@ -187,8 +197,8 @@ export default function Dashboard() {
                       <p className="text-xs text-muted-foreground">{student.subject}</p>
                     </div>
                     <div className="text-right">
-                      <Badge variant="destructive">{formatQAR(student.monthlyFee)}</Badge>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">{formatINREquivalent(student.monthlyFee)}</p>
+                      <Badge variant="destructive">{formatQAR(getEffectiveFee(student.id))}</Badge>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{formatINREquivalent(getEffectiveFee(student.id))}</p>
                     </div>
                   </div>
                 ))}

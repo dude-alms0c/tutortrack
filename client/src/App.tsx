@@ -10,6 +10,8 @@ import Dashboard from "@/pages/dashboard";
 import Students from "@/pages/students";
 import Schedules from "@/pages/schedules";
 import Payments from "@/pages/payments";
+import Reports from "@/pages/reports";
+import Backup from "@/pages/backup";
 
 function Router() {
   return (
@@ -18,6 +20,8 @@ function Router() {
       <Route path="/students" component={Students} />
       <Route path="/schedules" component={Schedules} />
       <Route path="/payments" component={Payments} />
+      <Route path="/reports" component={Reports} />
+      <Route path="/backup" component={Backup} />
       <Route component={NotFound} />
     </Switch>
   );

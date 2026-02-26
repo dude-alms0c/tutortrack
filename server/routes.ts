@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertStudentSchema, insertScheduleSchema, insertPaymentSchema } from "@shared/schema";
+import { insertStudentSchema, insertScheduleSchema, insertPaymentSchema, insertStudentFeeSchema } from "@shared/schema";
 import { z } from "zod";
 
 export async function registerRoutes(
@@ -99,6 +99,19 @@ export async function registerRoutes(
     res.status(201).json(payment);
   });
 
+  app.patch("/api/payments/:id", async (req, res) => {
+    const parsed = insertPaymentSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
+    const payment = await storage.updatePayment(parseInt(req.params.id), parsed.data);
+    if (!payment) return res.status(404).json({ message: "Payment not found" });
+    res.json(payment);
+  });
+
+  app.delete("/api/payments/:id", async (req, res) => {
+    await storage.deletePayment(parseInt(req.params.id));
+    res.status(204).end();
+  });
+
   app.post("/api/payments/bulk", async (req, res) => {
     const items = z.array(insertPaymentSchema).safeParse(req.body);
     if (!items.success) return res.status(400).json({ message: items.error.message });
@@ -112,6 +125,52 @@ export async function registerRoutes(
       }
     }
     res.json(results);
+  });
+
+  app.get("/api/student-fees", async (_req, res) => {
+    const fees = await storage.getStudentFees();
+    res.json(fees);
+  });
+
+  app.get("/api/student-fees/:studentId", async (req, res) => {
+    const fees = await storage.getStudentFeesByStudent(parseInt(req.params.studentId));
+    res.json(fees);
+  });
+
+  app.post("/api/student-fees", async (req, res) => {
+    const parsed = insertStudentFeeSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.message });
+    const fee = await storage.setStudentFee(parsed.data);
+    res.status(201).json(fee);
+  });
+
+  app.delete("/api/student-fees/:id", async (req, res) => {
+    await storage.deleteStudentFee(parseInt(req.params.id));
+    res.status(204).end();
+  });
+
+  app.get("/api/backup", async (_req, res) => {
+    try {
+      const backup = await storage.exportBackup();
+      res.setHeader("Content-Disposition", `attachment; filename=tutortrack_backup_${new Date().toISOString().split("T")[0]}.json`);
+      res.setHeader("Content-Type", "application/json");
+      res.json(backup);
+    } catch (e: any) {
+      res.status(500).json({ message: "Backup failed: " + e.message });
+    }
+  });
+
+  app.post("/api/restore", async (req, res) => {
+    try {
+      const data = req.body;
+      if (!data.version || !data.students || !data.schedules || !data.payments) {
+        return res.status(400).json({ message: "Invalid backup file format" });
+      }
+      const result = await storage.restoreBackup(data);
+      res.json({ message: "Restore completed", ...result });
+    } catch (e: any) {
+      res.status(500).json({ message: "Restore failed: " + e.message });
+    }
   });
 
   return httpServer;
