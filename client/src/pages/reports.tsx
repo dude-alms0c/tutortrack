@@ -32,7 +32,8 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December",
 ];
 
-const DAYS_ORDER = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+//const DAYS_ORDER = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const DAYS_ORDER = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" ];
 
 const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
 
@@ -116,8 +117,13 @@ function StudentReport({ students, schedules, payments, studentFees }: { student
   students.forEach(s => { if (s.grade) gradeMap[s.grade] = (gradeMap[s.grade] || 0) + 1; });
   const gradeData = Object.entries(gradeMap).map(([name, value]) => ({ name, value })).sort((a, b) => a.name.localeCompare(b.name));
 
-  const totalMonthlyRevenue = students.filter(s => s.status === "active").reduce((sum, s) => sum + getEffectiveFee(s.id), 0);
-  const avgFee = active > 0 ? Math.round(totalMonthlyRevenue / active) : 0;
+//  const totalMonthlyRevenue = students.filter(s => s.status === "active").reduce((sum, s) => sum + getEffectiveFee(s.id), 0);
+//  const avgFee = active > 0 ? Math.round(totalMonthlyRevenue / active) : 0;
+
+  // Only include active students with fees > 0 in revenue calculations
+  const studentsWithFees = students.filter(s => s.status === "active" && getEffectiveFee(s.id) > 0);
+  const totalMonthlyRevenue = studentsWithFees.reduce((sum, s) => sum + getEffectiveFee(s.id), 0);
+  const avgFee = studentsWithFees.length > 0 ? Math.round(totalMonthlyRevenue / studentsWithFees.length) : 0;
 
   const monthPayments = payments.filter(p => p.month === currentMonth && p.year === currentYear);
   const paidIds = new Set(monthPayments.map(p => p.studentId));
@@ -132,7 +138,7 @@ function StudentReport({ students, schedules, payments, studentFees }: { student
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{students.length}</div>
-            <p className="text-xs text-muted-foreground">{active} active, {inactive} inactive</p>
+ <p className="text-xs text-muted-foreground">{active} active ({studentsWithFees.length} with fees), {inactive} inactive</p>
           </CardContent>
         </Card>
         <Card data-testid="card-report-avg-fee">
@@ -254,10 +260,14 @@ function StudentReport({ students, schedules, payments, studentFees }: { student
                       <Badge variant="outline" className="text-green-600 border-green-600">
                         <CheckCircle className="h-3 w-3 mr-1" /> Paid
                       </Badge>
-                    ) : s.status === "active" ? (
+                    ) : s.status === "active" && getEffectiveFee(s.id) > 0 ? (
                       <Badge variant="outline" className="text-red-600 border-red-600">
                         <XCircle className="h-3 w-3 mr-1" /> Pending
                       </Badge>
+                    ): s.status === "active" && getEffectiveFee(s.id) === 0 ? (
+                             <Badge variant="outline" className="text-muted-foreground">
+                          No Fee
+                        </Badge>
                     ) : (
                       <span className="text-xs text-muted-foreground">N/A</span>
                     )}
@@ -420,7 +430,7 @@ function ScheduleReport({ students, schedules }: { students: Student[]; schedule
 
 function PaymentReport({ students, payments, studentFees }: { students: Student[]; payments: Payment[]; studentFees: StudentFee[] }) {
   const currentYear = new Date().getFullYear();
-  const [selectedYear, setSelectedYear] = useState(currentYear.toString());
+    const [selectedYear, setSelectedYear] = useState(currentYear.toString());
   const yearNum = parseInt(selectedYear);
 
   const years = Array.from(new Set(payments.map(p => p.year))).sort((a, b) => b - a);
@@ -432,7 +442,9 @@ function PaymentReport({ students, payments, studentFees }: { students: Student[
     const activeStudents = students.filter(s => s.status === "active");
     return activeStudents.reduce((sum, s) => {
       const override = studentFees.find(f => f.studentId === s.id && f.month === month && f.year === year);
-      return sum + (override ? override.amount : s.monthlyFee);
+//      return sum + (override ? override.amount : s.monthlyFee);
+const fee = override ? override.amount : s.monthlyFee;
+      return sum + (fee > 0 ? fee : 0);
     }, 0);
   };
 
@@ -456,15 +468,33 @@ function PaymentReport({ students, payments, studentFees }: { students: Student[
   const methodAmountData = Object.entries(methodAmountMap).map(([name, value]) => ({ name: name.charAt(0).toUpperCase() + name.slice(1), value }));
 
   const currentMonth = new Date().toLocaleString("default", { month: "long" });
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
   const currentMonthPayments = payments.filter(p => p.month === currentMonth && p.year === currentYear);
   const paidIds = new Set(currentMonthPayments.map(p => p.studentId));
   const activeStudents = students.filter(s => s.status === "active");
-  const paidCount = activeStudents.filter(s => paidIds.has(s.id)).length;
-  const pendingCount = activeStudents.length - paidCount;
+//  const paidCount = activeStudents.filter(s => paidIds.has(s.id)).length;
+//  const pendingCount = activeStudents.length - paidCount;
+  
+  // Filter to only those with fees > 0
+  const activeStudentsWithFees = activeStudents.filter(s => {
+    const fee = studentFees.find(f => f.studentId === s.id && f.month === currentMonth && f.year === currentYear)?.amount || s.monthlyFee;
+    return fee > 0;
+  });
+  
+    // Students with zero fees (for display)
+  const studentsWithZeroFees = activeStudents.filter(s => {
+    const fee = studentFees.find(f => f.studentId === s.id && f.month === currentMonth && f.year === currentYear)?.amount || s.monthlyFee;
+    return fee === 0;
+  });
+
+  // Count paid among those with fees
+  const paidCount = activeStudentsWithFees.filter(s => paidIds.has(s.id)).length;
+  const pendingCount = activeStudentsWithFees.length - paidCount;
+  const zeroCount = studentsWithZeroFees.length;
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3 mb-2">
+      <div className="flex items-center gap-3 mb-2">     
         <Select value={selectedYear} onValueChange={setSelectedYear}>
           <SelectTrigger className="w-32" data-testid="select-report-year">
             <SelectValue />
@@ -512,7 +542,7 @@ function PaymentReport({ students, payments, studentFees }: { students: Student[
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">{paidCount} paid</div>
-            <p className="text-xs text-red-500">{pendingCount} pending</p>
+            <p className="text-xs text-red-500">{pendingCount} pending</p>            
           </CardContent>
         </Card>
       </div>
@@ -657,7 +687,11 @@ function FamilyReport({ students, payments, studentFees }: { students: Student[]
 
   const familyData = Array.from(familyMap.entries()).map(([familyName, members]) => {
     const activeMembers = members.filter(m => m.status === "active");
-    const totalExpected = activeMembers.reduce((sum, m) => sum + getEffectiveFee(m.id, selectedMonth, yearNum), 0);
+    // Only include active members with fees > 0 in expected total
+    const activeMembersWithFees = activeMembers.filter(m => getEffectiveFee(m.id, selectedMonth, yearNum) > 0);
+//    const totalExpected = activeMembers.reduce((sum, m) => sum + getEffectiveFee(m.id, selectedMonth, yearNum), 0);
+
+    const totalExpected = activeMembersWithFees.reduce((sum, m) => sum + getEffectiveFee(m.id, selectedMonth, yearNum), 0);
     const monthPayments = payments.filter(p => p.month === selectedMonth && p.year === yearNum && members.some(m => m.id === p.studentId));
     const totalPaid = monthPayments.reduce((sum, p) => sum + p.amount, 0);
     const paidMembers = new Set(monthPayments.map(p => p.studentId));
@@ -809,7 +843,9 @@ function FamilyReport({ students, payments, studentFees }: { students: Student[]
                           </Badge>
                         ) : (
                           <div className="space-y-0.5">
-                            {f.activeMembers.map(m => (
+                            {f.activeMembers
+                            .filter(m => getEffectiveFee(m.id, selectedMonth, yearNum) > 0)
+                            .map(m => (
                               <div key={m.id} className="flex items-center gap-1 text-xs">
                                 {f.paidMembers.has(m.id) ? (
                                   <CheckCircle className="h-3 w-3 text-green-600" />

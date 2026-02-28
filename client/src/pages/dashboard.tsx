@@ -42,10 +42,19 @@ export default function Dashboard() {
     const student = students?.find(s => s.id === studentId);
     return student?.monthlyFee || 0;
   };
-  const totalExpected = activeStudents.reduce((sum, s) => sum + getEffectiveFee(s.id), 0);
+  //const totalExpected = activeStudents.reduce((sum, s) => sum + getEffectiveFee(s.id), 0);
+  
+   // Only include students with fees > 0 in expected total
+  const studentsWithFees = activeStudents.filter(s => getEffectiveFee(s.id) > 0);
+  const totalExpected = studentsWithFees.reduce((sum, s) => sum + getEffectiveFee(s.id), 0);
 
   const paidStudentIds = new Set(monthPayments.map((p) => p.studentId));
-  const pendingStudents = activeStudents.filter((s) => !paidStudentIds.has(s.id));
+//  const pendingStudents = activeStudents.filter((s) => !paidStudentIds.has(s.id));
+  
+  // Only show pending students who have fees > 0 and haven't paid
+  const pendingStudents = activeStudents.filter(
+    (s) => !paidStudentIds.has(s.id) && getEffectiveFee(s.id) > 0
+  );
 
   return (
     <div className="flex-1 overflow-auto p-6">

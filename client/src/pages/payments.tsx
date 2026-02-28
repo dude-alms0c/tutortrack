@@ -142,6 +142,7 @@ function PaymentForm({
             <SelectContent>
               <SelectItem value="cash">Cash</SelectItem>
               <SelectItem value="upi">UPI</SelectItem>
+              <SelectItem value="fawran">Fawran</SelectItem>
               <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
               <SelectItem value="cheque">Cheque</SelectItem>
             </SelectContent>

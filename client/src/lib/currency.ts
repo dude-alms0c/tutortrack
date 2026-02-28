@@ -1,4 +1,4 @@
-const QAR_TO_INR_RATE = 22.7;
+const QAR_TO_INR_RATE = 24.95010;
 
 export function formatQAR(amount: number): string {
   return new Intl.NumberFormat("en-QA", {

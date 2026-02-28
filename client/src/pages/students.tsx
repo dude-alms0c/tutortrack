@@ -77,7 +77,7 @@ function StudentForm({
       email: email || null,
       grade: grade || null,
       subject,
-      monthlyFee: parseInt(monthlyFee),
+      monthlyFee: parseInt(monthlyFee) || 0, // Allow 0 as valid fee
       status,
       familyName: familyName || null,
     });
@@ -185,7 +185,7 @@ function BulkUploadDialog({ onClose }: { onClose: () => void }) {
         const err = validateRequired(row, ["name", "phone", "subject"], i + 1);
         if (err) { clientErrors.push(err); continue; }
         const fee = parseInt(row.monthlyfee || row.monthly_fee || row.fee || "0");
-        if (!fee || fee <= 0) { clientErrors.push(`Row ${i + 1}: Invalid or missing monthlyFee`); continue; }
+        if (!fee || fee < 0) { clientErrors.push(`Row ${i + 1}: Invalid or missing monthlyFee`); continue; }
         rows.push({
           name: row.name,
           phone: row.phone,
@@ -293,7 +293,7 @@ function MonthlyFeesDialog({ student }: { student: Student }) {
   const handleAddFee = (e: React.FormEvent) => {
     e.preventDefault();
     const amount = parseInt(feeAmount);
-    if (!amount || amount <= 0) return;
+    if (!amount || amount < 0) return;
     setFeeMutation.mutate({
       studentId: student.id,
       month: feeMonth,
@@ -442,6 +442,16 @@ export default function Students() {
       s.name.toLowerCase().includes(search.toLowerCase()) ||
       s.subject.toLowerCase().includes(search.toLowerCase())
   );
+  
+    // Sort students: active first, inactive last
+  const sortedStudents = filtered?.sort((a, b) => {
+    if (a.status === b.status) {
+      // If same status, sort by name
+      return a.name.localeCompare(b.name);
+    }
+    // Active comes before inactive
+    return a.status === "active" ? -1 : 1;
+  });
 
   return (
     <div className="flex-1 overflow-auto p-6">
@@ -513,7 +523,7 @@ export default function Students() {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered?.map((student) => (
+          {sortedStudents?.map((student) => (
             <Card key={student.id} className="cursor-pointer hover-elevate" onClick={() => setEditStudent(student)} data-testid={`card-student-${student.id}`}>
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-2 mb-3">
