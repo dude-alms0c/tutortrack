@@ -127,6 +127,16 @@ function StudentReport({ students, schedules, payments, studentFees }: { student
 
   const monthPayments = payments.filter(p => p.month === currentMonth && p.year === currentYear);
   const paidIds = new Set(monthPayments.map(p => p.studentId));
+  
+      // Sort students: active first, inactive last
+  const sortedStudents = students?.sort((a, b) => {
+    if (a.status === b.status) {
+      // If same status, sort by name
+      return a.name.localeCompare(b.name);
+    }
+    // Active comes before inactive
+    return a.status === "active" ? -1 : 1;
+  });
 
   return (
     <div className="space-y-4">
@@ -240,7 +250,7 @@ function StudentReport({ students, schedules, payments, studentFees }: { student
               </TableRow>
             </TableHeader>
             <TableBody>
-              {students.map(s => (
+              {sortedStudents.map(s => (
                 <TableRow key={s.id} data-testid={`report-student-row-${s.id}`}>
                   <TableCell className="font-medium">{s.name}</TableCell>
                   <TableCell>{s.subject}</TableCell>
