@@ -71,13 +71,20 @@ function StudentForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Allow 0 as valid fee
+    const monthlyFeeNumber =
+  monthlyFee.trim() === ""
+    ? 0
+    : parseInt(monthlyFee, 10);
+    
     onSubmit({
       name,
       phone,
       email: email || null,
       grade: grade || null,
       subject,
-      monthlyFee: parseInt(monthlyFee) || 0, // Allow 0 as valid fee
+      monthlyFee: monthlyFeeNumber, 
       status,
       familyName: familyName || null,
     });
@@ -292,8 +299,15 @@ function MonthlyFeesDialog({ student }: { student: Student }) {
 
   const handleAddFee = (e: React.FormEvent) => {
     e.preventDefault();
-    const amount = parseInt(feeAmount);
-    if (!amount || amount < 0) return;
+//    const amount = parseInt(feeAmount);
+//    if (!amount || amount < 0) return;
+
+  const trimmed = feeAmount.trim();
+  if (trimmed === "") return; // block empty, allow "0"
+
+  const amount = parseInt(trimmed, 10);
+  if (Number.isNaN(amount) || amount < 0) return;
+  
     setFeeMutation.mutate({
       studentId: student.id,
       month: feeMonth,
