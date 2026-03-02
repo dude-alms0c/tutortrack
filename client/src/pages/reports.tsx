@@ -795,8 +795,13 @@ const amount =
     // 2) among non‑zero expected, settled last
     if (settledA && !settledB) return 1;
     if (!settledA && settledB) return -1;
+    
+    // 3) among remaining, sort by expected (higher first)
+    if (a.totalExpected !== b.totalExpected) {
+      return b.totalExpected - a.totalExpected;
+    }
 
-    // 3) fallback alphabetical
+    // 4) fallback alphabetical
     return a.familyName.localeCompare(b.familyName);
   });
 //  .sort((a, b) => a.familyName.localeCompare(b.familyName));
