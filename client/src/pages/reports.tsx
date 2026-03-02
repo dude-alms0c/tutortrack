@@ -128,15 +128,48 @@ function StudentReport({ students, schedules, payments, studentFees }: { student
   const monthPayments = payments.filter(p => p.month === currentMonth && p.year === currentYear);
   const paidIds = new Set(monthPayments.map(p => p.studentId));
   
-      // Sort students: active first, inactive last
-  const sortedStudents = students?.sort((a, b) => {
-    if (a.status === b.status) {
-      // If same status, sort by name
-      return a.name.localeCompare(b.name);
-    }
-    // Active comes before inactive
-    return a.status === "active" ? -1 : 1;
-  });
+//      // Sort students: active first, inactive last
+//  const sortedStudents = students?.sort((a, b) => {
+//    if (a.status === b.status) {
+//      // If same status, sort by name
+//      return a.name.localeCompare(b.name);
+//    }
+//    // Active comes before inactive
+//    return a.status === "active" ? -1 : 1;
+//  });
+  
+  // NEW: infer joined date from earliest payment
+const joinedDateByStudent = new Map<number, Date>();
+payments.forEach((p) => {
+  if (!p.paidDate) return;
+  const d = new Date(p.paidDate);
+  const existing = joinedDateByStudent.get(p.studentId);
+  if (!existing || d < existing) {
+    joinedDateByStudent.set(p.studentId, d);
+  }
+});
+
+const getReportPeriodStart = (month: string, year: number) =>
+  new Date(`${year}-${month}-01`);
+
+const studentIsActiveInPeriod = (studentId: number, month: string, year: number) => {
+  const joined = joinedDateByStudent.get(studentId);
+  if (!joined) return false; // or true, depending on your policy
+  const periodStart = getReportPeriodStart(month, year);
+  return joined <= periodStart;
+};
+
+// NEW:
+const visibleStudents =
+  students
+    ?.filter((s) => studentIsActiveInPeriod(s.id, currentMonth, currentYear)) ?? [];
+
+const sortedStudents = visibleStudents.sort((a, b) => {
+  if (a.status === b.status) {
+    return a.name.localeCompare(b.name);
+  }
+  return a.status === "active" ? -1 : 1;
+});
 
   return (
     <div className="space-y-4">
@@ -148,7 +181,7 @@ function StudentReport({ students, schedules, payments, studentFees }: { student
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{students.length}</div>
- <p className="text-xs text-muted-foreground">{active} active ({studentsWithFees.length} with fees), {inactive} inactive</p>
+            <p className="text-xs text-muted-foreground">{active} active ({studentsWithFees.length} with fees), {inactive} inactive</p>
           </CardContent>
         </Card>
         <Card data-testid="card-report-avg-fee">
@@ -675,6 +708,39 @@ function FamilyReport({ students, payments, studentFees }: { students: Student[]
 
   const years = Array.from(new Set(payments.map(p => p.year))).sort((a, b) => b - a);
   if (!years.includes(currentYear)) years.unshift(currentYear);
+  
+  // NEW: infer joined date from earliest payment
+const joinedDateByStudent = new Map<number, Date>();
+payments.forEach((p) => {
+  if (!p.paidDate) return;
+  const d = new Date(p.paidDate);
+  const existing = joinedDateByStudent.get(p.studentId);
+  if (!existing || d < existing) {
+    joinedDateByStudent.set(p.studentId, d);
+  }
+});
+
+const getReportPeriodStart = (month: string, year: number) =>
+  new Date(`${year}-${month}-01`);
+
+const studentIsActiveInPeriod = (studentId: number, month: string, year: number) => {
+  const joined = joinedDateByStudent.get(studentId);
+  if (!joined) return false; // or true, depending on your policy
+  const periodStart = getReportPeriodStart(month, year);
+  return joined <= periodStart;
+};
+
+// NEW:
+const visibleStudents =
+  students
+    ?.filter((s) => studentIsActiveInPeriod(s.id, currentMonth, currentYear)) ?? [];
+
+const sortedStudents = visibleStudents.sort((a, b) => {
+  if (a.status === b.status) {
+    return a.name.localeCompare(b.name);
+  }
+  return a.status === "active" ? -1 : 1;
+});
 
   const familyMap = new Map<string, Student[]>();
   const unassigned: Student[] = [];
@@ -692,7 +758,13 @@ function FamilyReport({ students, payments, studentFees }: { students: Student[]
     const override = studentFees.find(f => f.studentId === studentId && f.month === month && f.year === year);
     if (override) return override.amount;
     const student = students.find(s => s.id === studentId);
-    return student?.monthlyFee || 0;
+//    return student?.monthlyFee || 0;
+const amount =
+    override && override.amount !== undefined && override.amount !== null
+      ? override.amount
+      : student?.monthlyFee;
+
+  return amount ?? 0;
   };
 
   const familyData = Array.from(familyMap.entries()).map(([familyName, members]) => {
@@ -713,6 +785,13 @@ function FamilyReport({ students, payments, studentFees }: { students: Student[]
   const fullPaidFamilies = familyData.filter(f => f.allPaid).length;
   const totalFamilyExpected = familyData.reduce((sum, f) => sum + f.totalExpected, 0);
   const totalFamilyPaid = familyData.reduce((sum, f) => sum + f.totalPaid, 0);
+  
+  // pending
+  // totalFamilies - fullPaidFamilies
+  const pendingFamilies = familyData.filter(
+  (f) => f.totalExpected > 0 && !f.allPaid,
+).length;
+
 
   const familyChartData = familyData.map(f => ({
     name: f.familyName.length > 12 ? f.familyName.substring(0, 12) + "..." : f.familyName,
@@ -752,7 +831,7 @@ function FamilyReport({ students, payments, studentFees }: { students: Student[]
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">{fullPaidFamilies}</div>
-            <p className="text-xs text-muted-foreground">{totalFamilies - fullPaidFamilies} pending</p>
+            <p className="text-xs text-muted-foreground">{pendingFamilies} pending</p>
           </CardContent>
         </Card>
         <Card data-testid="card-report-family-expected">
