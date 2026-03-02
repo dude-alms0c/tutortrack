@@ -534,6 +534,31 @@ const fee = override ? override.amount : s.monthlyFee;
   const paidCount = activeStudentsWithFees.filter(s => paidIds.has(s.id)).length;
   const pendingCount = activeStudentsWithFees.length - paidCount;
   const zeroCount = studentsWithZeroFees.length;
+  
+  const formatPaidDate = (dateStr: string | null | undefined) => {
+  if (!dateStr) return "-";
+
+  // Handle both "2026-03-02" and "30/01/2026"
+  let d: Date | null = null;
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    // ISO from <input type="date">
+    d = new Date(dateStr);
+  } else if (/^\d{2}\/(\d{2})\/\d{4}$/.test(dateStr)) {
+    // CSV: dd/MM/yyyy
+    const [day, month, year] = dateStr.split("/");
+    d = new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10));
+  }
+
+  if (!d || Number.isNaN(d.getTime())) return dateStr;
+
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+
+  return `${dd}/${mm}/${yyyy}`;
+};
+
 
   return (
     <div className="space-y-4">
@@ -685,7 +710,7 @@ const fee = override ? override.amount : s.monthlyFee;
                         <TableCell>
                           <Badge variant="outline">{p.method}</Badge>
                         </TableCell>
-                        <TableCell>{p.paidDate}</TableCell>
+                        <TableCell>{formatPaidDate(p.paidDate)}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">{p.notes || "-"}</TableCell>
                       </TableRow>
                     );

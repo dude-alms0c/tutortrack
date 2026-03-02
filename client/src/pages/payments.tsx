@@ -418,6 +418,31 @@ export default function Payments() {
       default: return m;
     }
   };
+  
+  const formatPaidDate = (dateStr: string | null | undefined) => {
+  if (!dateStr) return "-";
+
+  // Handle both "2026-03-02" and "30/01/2026"
+  let d: Date | null = null;
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    // ISO from <input type="date">
+    d = new Date(dateStr);
+  } else if (/^\d{2}\/(\d{2})\/\d{4}$/.test(dateStr)) {
+    // CSV: dd/MM/yyyy
+    const [day, month, year] = dateStr.split("/");
+    d = new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10));
+  }
+
+  if (!d || Number.isNaN(d.getTime())) return dateStr;
+
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+
+  return `${dd}/${mm}/${yyyy}`;
+};
+
 
   return (
     <div className="flex-1 overflow-auto p-6">
@@ -528,7 +553,7 @@ export default function Payments() {
                           {formatINREquivalent(payment.amount)}
                         </TableCell>
                         <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
-                          {payment.paidDate}
+                          {formatPaidDate(payment.paidDate)}
                         </TableCell>
                         <TableCell className="hidden sm:table-cell">
                           <Badge variant="secondary">{methodLabel(payment.method)}</Badge>
