@@ -784,13 +784,19 @@ const amount =
     const balanceA = a.totalExpected - a.totalPaid;
     const balanceB = b.totalExpected - b.totalPaid;
 
+    // 1) expected 0 always last
+    const zeroExpectedA = a.totalExpected === 0;
+    const zeroExpectedB = b.totalExpected === 0;
+    if (zeroExpectedA && !zeroExpectedB) return 1;
+    if (!zeroExpectedA && zeroExpectedB) return -1;
+
     const settledA = balanceA === 0;
     const settledB = balanceB === 0;
+    // 2) among non‑zero expected, settled last
+    if (settledA && !settledB) return 1;
+    if (!settledA && settledB) return -1;
 
-    if (settledA && !settledB) return 1;   // A after B
-    if (!settledA && settledB) return -1;  // A before B
-
-    // fallback: alphabetical by family name
+    // 3) fallback alphabetical
     return a.familyName.localeCompare(b.familyName);
   });
 //  .sort((a, b) => a.familyName.localeCompare(b.familyName));
