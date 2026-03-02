@@ -779,7 +779,21 @@ const amount =
     const paidMembers = new Set(monthPayments.map(p => p.studentId));
     const allPaid = activeMembers.length > 0 && activeMembers.every(m => paidMembers.has(m.id));
     return { familyName, members, activeMembers, totalExpected, totalPaid, allPaid, paidMembers };
-  }).sort((a, b) => a.familyName.localeCompare(b.familyName));
+  })
+  .sort((a, b) => {
+    const balanceA = a.totalExpected - a.totalPaid;
+    const balanceB = b.totalExpected - b.totalPaid;
+
+    const settledA = balanceA === 0;
+    const settledB = balanceB === 0;
+
+    if (settledA && !settledB) return 1;   // A after B
+    if (!settledA && settledB) return -1;  // A before B
+
+    // fallback: alphabetical by family name
+    return a.familyName.localeCompare(b.familyName);
+  });
+//  .sort((a, b) => a.familyName.localeCompare(b.familyName));
 
   const totalFamilies = familyData.length;
   const fullPaidFamilies = familyData.filter(f => f.allPaid).length;
