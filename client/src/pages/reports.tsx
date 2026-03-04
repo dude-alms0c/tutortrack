@@ -475,31 +475,197 @@ function PaymentReport({ students, payments, studentFees }: { students: Student[
   const currentYear = new Date().getFullYear();
     const [selectedYear, setSelectedYear] = useState(currentYear.toString());
   const yearNum = parseInt(selectedYear);
+  
+  const currentMonthIndex = new Date().getMonth(); // 0 = Jan
 
   const years = Array.from(new Set(payments.map(p => p.year))).sort((a, b) => b - a);
   if (!years.includes(currentYear)) years.unshift(currentYear);
 
   const yearPayments = payments.filter(p => p.year === yearNum);
+  
+  // Make expected zero for any year where there are no payments 
+  const hasPaymentsThisYear = yearPayments.length > 0;
+  
+  // Compute the first payment month in the selected year
+  // Find earliest payment month in this year (index into MONTHS)
+const firstPaymentMonthIndex = (() => {
+  if (yearPayments.length === 0) return null;
+  const idxs = yearPayments
+    .map((p) => MONTHS.indexOf(p.month))
+    .filter((i) => i >= 0);
+  if (idxs.length === 0) return null;
+  return Math.min(...idxs);
+})();
 
-  const getMonthlyExpected = (month: string, year: number) => {
-    const activeStudents = students.filter(s => s.status === "active");
-    return activeStudents.reduce((sum, s) => {
-      const override = studentFees.find(f => f.studentId === s.id && f.month === month && f.year === year);
-//      return sum + (override ? override.amount : s.monthlyFee);
-const fee = override ? override.amount : s.monthlyFee;
-      return sum + (fee > 0 ? fee : 0);
-    }, 0);
+  
+  // Infer first payment date per student for start-of-payments logic
+  // format paid date as well
+const parsePaidDate = (dateStr: string | null | undefined): Date | null => {
+  if (!dateStr) return null;
+
+  // ISO from <input type="date">
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    const d = new Date(dateStr);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+
+  // CSV: dd/MM/yyyy
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) {
+    const [day, month, year] = dateStr.split("/");
+    const d = new Date(
+      parseInt(year, 10),
+      parseInt(month, 10) - 1,
+      parseInt(day, 10),
+    );
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+
+  return null;
+};
+
+const joinedDateByStudent = new Map<number, Date>();
+
+payments.forEach((p) => {
+  const d = parsePaidDate(p.paidDate);
+  if (!d) return;
+  const existing = joinedDateByStudent.get(p.studentId);
+  if (!existing || d < existing) {
+    joinedDateByStudent.set(p.studentId, d);
+  }
+});
+
+const getPeriodStart = (month: string, year: number) =>
+  new Date(`${year}-${month}-01`);
+
+const studentIsActiveInPeriod = (
+  studentId: number,
+  month: string,
+  year: number,
+) => {
+  const joined = joinedDateByStudent.get(studentId);
+  if (!joined) return false; // only count students once they have any payment
+  const periodStart = getPeriodStart(month, year);
+  return joined <= periodStart;
+};
+// end    
+
+// replace getMonthlyExpected
+const getMonthlyExpected = (month: string, year: number) => {
+  const activeStudents = students.filter((s) => s.status === "active");
+
+  return activeStudents.reduce((sum, s) => {
+    // Only count students whose payment history has started by this period
+//    if (!studentIsActiveInPeriod(s.id, month, year)) return sum;
+
+    const override = studentFees.find(
+      (f) => f.studentId === s.id && f.month === month && f.year === year,
+    );
+    const fee =
+      override && override.amount !== undefined && override.amount !== null
+        ? override.amount
+        : s.monthlyFee;
+
+    return sum + (fee > 0 ? fee : 0);
+  }, 0);
+};
+
+// joined‑date logic only for older years
+const earliestPayment = payments.reduce<Date | null>((min, p) => {
+  const d = parsePaidDate(p.paidDate);
+  if (!d) return min;
+  return !min || d < min ? d : min;
+}, null);
+
+const yearHasStarted = (year: number) =>
+  !earliestPayment || earliestPayment.getFullYear() <= year;
+
+
+//  const getMonthlyExpected = (month: string, year: number) => {
+//    const activeStudents = students.filter(s => s.status === "active");
+//    return activeStudents.reduce((sum, s) => {
+//      const override = studentFees.find(f => f.studentId === s.id && f.month === month && f.year === year);
+////      return sum + (override ? override.amount : s.monthlyFee);
+//const fee = override ? override.amount : s.monthlyFee;
+//      return sum + (fee > 0 ? fee : 0);
+//    }, 0);
+//  };
+
+//  const monthlyData = MONTHS.map(month => {
+//    const monthPays = yearPayments.filter(p => p.month === month);
+//    const collected = monthPays.reduce((sum, p) => sum + p.amount, 0);
+////    const expected = getMonthlyExpected(month, yearNum);
+////    const expected = yearHasStarted(yearNum)
+////    ? getMonthlyExpected(month, yearNum)
+////    : 0;
+//      const expected = hasPaymentsThisYear
+//    ? getMonthlyExpected(month, yearNum)
+//    : 0;
+//    return { name: month.substring(0, 3), fullName: month, collected, expected, students: monthPays.length };
+//  });
+
+// gate per month
+//const monthlyData = MONTHS.map((month, idx) => {
+//  const monthPays = yearPayments.filter((p) => p.month === month);
+//  const collected = monthPays.reduce((sum, p) => sum + p.amount, 0);
+//
+//  const expected =
+//    firstPaymentMonthIndex !== null && idx >= firstPaymentMonthIndex
+//      ? getMonthlyExpected(month, yearNum)
+//      : 0;
+//
+//  return {
+//    name: month.substring(0, 3),
+//    fullName: month,
+//    collected,
+//    expected,
+//    students: monthPays.length,
+//  };
+//});
+
+const monthlyData = MONTHS.map((month, idx) => {
+  const monthPays = yearPayments.filter((p) => p.month === month);
+  const collected = monthPays.reduce((sum, p) => sum + p.amount, 0);
+
+  // Decide whether to show expected
+  let expected = 0;
+
+  const isFutureYear = yearNum > currentYear;
+  const isCurrentYear = yearNum === currentYear;
+  const isPastYear = yearNum < currentYear;
+  const isFutureMonthInCurrentYear =
+    isCurrentYear && idx > currentMonthIndex;
+  const isPastOrCurrentMonthInCurrentYear =
+    isCurrentYear && idx <= currentMonthIndex;
+  const isCurrentMonthInCurrentYear =
+  isCurrentYear && idx === currentMonthIndex;  
+
+  if (isFutureYear || isFutureMonthInCurrentYear || isCurrentMonthInCurrentYear) {
+    // Future periods AND current month: always show expected
+    expected = getMonthlyExpected(month, yearNum);
+  } else if (isPastYear || isPastOrCurrentMonthInCurrentYear) {
+    // Past / current periods: only show expected if there are payments
+    expected =
+      monthPays.length > 0 ? getMonthlyExpected(month, yearNum) : 0;
+  }
+
+  return {
+    name: month.substring(0, 3),
+    fullName: month,
+    collected,
+    expected,
+    students: monthPays.length,
   };
+});
 
-  const monthlyData = MONTHS.map(month => {
-    const monthPays = yearPayments.filter(p => p.month === month);
-    const collected = monthPays.reduce((sum, p) => sum + p.amount, 0);
-    const expected = getMonthlyExpected(month, yearNum);
-    return { name: month.substring(0, 3), fullName: month, collected, expected, students: monthPays.length };
-  });
 
   const totalCollected = yearPayments.reduce((sum, p) => sum + p.amount, 0);
-  const totalExpectedYear = monthlyData.reduce((sum, m) => sum + m.expected, 0);
+//  const totalExpectedYear = monthlyData.reduce((sum, m) => sum + m.expected, 0);
+
+// If there are no payments in the selected year
+const totalExpectedYear = hasPaymentsThisYear
+  ? monthlyData.reduce((sum, m) => sum + m.expected, 0)
+  : 0;
+  
   const collectionRate = totalExpectedYear > 0 ? Math.round((totalCollected / totalExpectedYear) * 100) : 0;
 
   const methodMap: Record<string, number> = {};
