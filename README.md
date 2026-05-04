@@ -98,3 +98,4 @@ source ~/.zshrc
 | Permission denied on database | Try `createdb -U postgres tutortrack` |
 | Port 5000 already in use | Set a different port: `PORT=3000 npm run dev` |
 | Node version too old | Run `brew install node` to update |
+| PostgreSQL not loading/running | export LC_ALL="en_US.UTF-8" in ~/.zshrc |
